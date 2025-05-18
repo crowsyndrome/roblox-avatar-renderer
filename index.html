@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Roblox Avatar Renderer</title>
+        <style>
+            body {
+                margin: 0;
+                overflow: hidden;
+                font-family: system-ui, sans-serif;
+                background-color: #f0f0f0;
+            }
+            #ui {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                z-index: 10;
+                background: rgba(255, 255, 255, 0.95);
+                padding: 12px 16px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+                max-width: 280px;
+                max-height: calc(100vh - 20px); /* Max height is viewport height minus top offset and some padding */
+                overflow-y: auto; /* Allows vertical scrolling if content overflows */
+                box-sizing: border-box; /* Includes padding and border in the element's total width and height */
+            }
+            #ui div {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+                width: 100%;
+            }
+            #ui div.row {
+                flex-direction: row;
+                align-items: center;
+                gap: 8px;
+            }
+            #ui input[type="text"],
+            #ui input[type="color"],
+            #ui input[type="range"],
+            #ui input[type="checkbox"] {
+                padding: 8px 10px;
+                border-radius: 4px;
+                border: 1px solid #ccc;
+                font-size: 14px;
+                box-sizing: border-box;
+            }
+            #ui input[type="text"] {
+                width: 150px;
+            }
+            #ui input[type="color"] {
+                height: 38px;
+                padding: 4px;
+                cursor: pointer;
+            }
+            #ui input[type="range"] {
+                width: 100%;
+                margin-top: 2px;
+            }
+            #ui input[type="checkbox"] {
+                width: auto;
+                height: auto;
+                padding: 0;
+                margin-right: 5px;
+            }
+            #ui button {
+                padding: 8px 15px;
+                border-radius: 4px;
+                border: none;
+                background-color: #007bff;
+                color: white;
+                font-size: 14px;
+                cursor: pointer;
+                transition: background-color 0.2s;
+            }
+            #ui button:hover {
+                background-color: #0056b3;
+            }
+            #ui p {
+                margin: 0;
+                font-size: 11px;
+                color: #555;
+                width: 100%;
+            }
+            #ui label {
+                font-size: 12px;
+                color: #333;
+                margin-bottom: 2px;
+                display: flex;
+                align-items: center;
+            }
+            #container {
+                width: 100vw;
+                height: 100vh;
+                display: block;
+            }
+            .loader-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 100;
+                color: white;
+                font-size: 18px;
+                display: none;
+            }
+            .control-group {
+                margin-bottom: 10px;
+                border-top: 1px solid #eee;
+                padding-top: 10px;
+            }
+            .control-group:first-child {
+                border-top: none;
+                padding-top: 0;
+            }
+            .control-group h4 {
+                font-size: 14px;
+                margin: 0 0 8px 0;
+                color: #111;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="ui">
+            <div class="control-group">
+                <div class="row">
+                    <input id="userId" type="text" placeholder="Roblox User ID" />
+                    <button id="renderBtn">Render Avatar</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h4>Background</h4>
+                <div>
+                    <label for="bgColor">Color:</label>
+                    <input id="bgColor" type="color" value="#dedede" />
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h4>Ambient Light</h4>
+                <div>
+                    <label for="ambientColor">Color:</label>
+                    <input id="ambientColor" type="color" value="#ffffff" />
+                </div>
+                <div>
+                    <label for="ambientIntensity">Intensity: <span id="ambientIntensityVal">0.6</span></label>
+                    <input id="ambientIntensity" type="range" min="0" max="2" step="0.01" value="0.6" />
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h4>Directional Light</h4>
+                <div>
+                    <label for="dirColor">Color:</label>
+                    <input id="dirColor" type="color" value="#ffffff" />
+                </div>
+                <div>
+                    <label for="dirIntensity">Intensity: <span id="dirIntensityVal">1.0</span></label>
+                    <input id="dirIntensity" type="range" min="0" max="3" step="0.01" value="1.0" />
+                </div>
+                <div>
+                    <label for="dirX">Position X: <span id="dirXVal">0</span></label>
+                    <input id="dirX" type="range" min="-20" max="20" step="0.1" value="0" />
+                </div>
+                <div>
+                    <label for="dirY">Position Y: <span id="dirYVal">10</span></label>
+                    <input id="dirY" type="range" min="-20" max="20" step="0.1" value="10" />
+                </div>
+                <div>
+                    <label for="dirZ">Position Z: <span id="dirZVal">0</span></label>
+                    <input id="dirZ" type="range" min="-20" max="20" step="0.1" value="0" />
+                </div>
+                <div>
+                    <label for="shadowRadius">Shadow Softness: <span id="shadowRadiusVal">20</span></label>
+                    <input id="shadowRadius" type="range" min="1" max="20" step="1" value="20" />
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h4>SSAO Effect</h4>
+                <div>
+                    <label for="ssaoKernelRadius">Kernel Radius: <span id="ssaoKernelRadiusVal">0.6</span></label>
+                    <input id="ssaoKernelRadius" type="range" min="0" max="32" step="0.1" value="0.6" />
+                </div>
+                <div>
+                    <label for="ssaoMinDistance">Min Distance: <span id="ssaoMinDistanceVal">0.0001</span></label>
+                    <input id="ssaoMinDistance" type="range" min="0.0001" max="0.01" step="0.0001" value="0.0001" />
+                </div>
+                <div>
+                    <label for="ssaoMaxDistance">Max Distance: <span id="ssaoMaxDistanceVal">0.01</span></label>
+                    <input id="ssaoMaxDistance" type="range" min="0.001" max="0.2" step="0.001" value="0.01" />
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h4>Scene & Export</h4>
+                <div class="row">
+                    <input type="checkbox" id="toggleGround" checked />
+                    <label for="toggleGround">Show Ground Plane</label>
+                </div>
+                <div class="row">
+                    <button id="captureScreenshotBtn">Capture Screenshot</button>
+                </div>
+                <div class="row">
+                    <button id="exportGltfBtn">Export GLTF</button>
+                    <button id="exportObjBtn">Export OBJ</button>
+                </div>
+                <p>Exports current avatar. Textures for OBJ might need manual linking in other software.</p>
+            </div>
+        </div>
+        <div id="container"></div>
+        <div class="loader-overlay" id="loaderOverlay">Loading...</div>
+
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/OBJExporter.js"></script>
+
+        <script>
+            const PROXY = "https://corsproxy.io/?url=";
+            const loaderOverlay = document.getElementById("loaderOverlay");
+
+            const log = (...msg) => {
+                console.log(...msg);
+            };
+
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.crossOrigin = "anonymous";
+
+            const container = document.getElementById("container");
+            let scene, camera, renderer, controls, currentAvatar, composer, ssaoPass;
+            let ambientLight, directionalLight, groundPlane;
+
+            function initThreeJS() {
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(document.getElementById("bgColor").value);
+
+                camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(0, 1.6, 7);
+
+                renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                container.appendChild(renderer.domElement);
+
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.VSMShadowMap;
+
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.target.set(0, 0.8, 0);
+                controls.minDistance = 1;
+                controls.maxDistance = 30;
+                controls.update();
+
+                ambientLight = new THREE.AmbientLight(document.getElementById("ambientColor").value, parseFloat(document.getElementById("ambientIntensity").value));
+                scene.add(ambientLight);
+
+                directionalLight = new THREE.DirectionalLight(document.getElementById("dirColor").value, parseFloat(document.getElementById("dirIntensity").value));
+                directionalLight.position.set(parseFloat(document.getElementById("dirX").value), parseFloat(document.getElementById("dirY").value), parseFloat(document.getElementById("dirZ").value));
+                directionalLight.castShadow = true;
+                directionalLight.shadow.mapSize.width = 2048;
+                directionalLight.shadow.mapSize.height = 2048;
+                directionalLight.shadow.camera.near = 0.5;
+                directionalLight.shadow.camera.far = 50;
+                directionalLight.shadow.camera.left = -10;
+                directionalLight.shadow.camera.right = 10;
+                directionalLight.shadow.camera.top = 10;
+                directionalLight.shadow.camera.bottom = -10;
+                directionalLight.shadow.bias = -0.0005;
+                directionalLight.shadow.radius = parseInt(document.getElementById("shadowRadius").value); // Initialize radius
+                scene.add(directionalLight);
+
+                const groundGeometry = new THREE.PlaneGeometry(40, 40);
+                const groundMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x888888,
+                    roughness: 0.9,
+                    metalness: 0.1,
+                    side: THREE.DoubleSide,
+                });
+                groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
+                groundPlane.rotation.x = -Math.PI / 2;
+                groundPlane.position.y = 0;
+                groundPlane.receiveShadow = true;
+                groundPlane.visible = document.getElementById("toggleGround").checked;
+                scene.add(groundPlane);
+
+                composer = new THREE.EffectComposer(renderer);
+                const renderPass = new THREE.RenderPass(scene, camera);
+                composer.addPass(renderPass);
+
+                ssaoPass = new THREE.SSAOPass(scene, camera, window.innerWidth, window.innerHeight);
+                ssaoPass.kernelRadius = parseFloat(document.getElementById("ssaoKernelRadius").value);
+                ssaoPass.minDistance = parseFloat(document.getElementById("ssaoMinDistance").value);
+                ssaoPass.maxDistance = parseFloat(document.getElementById("ssaoMaxDistance").value);
+                ssaoPass.output = THREE.SSAOPass.OUTPUT.Default;
+                composer.addPass(ssaoPass);
+
+                window.addEventListener("resize", onWindowResize, false);
+                setupEventListeners();
+
+                (function animate() {
+                    requestAnimationFrame(animate);
+                    controls.update();
+                    renderer.shadowMap.needsUpdate = true; // Ensure shadows update with softness changes
+                    composer.render();
+                })();
+
+                log("Three.js scene initialized with SSAO, Ground Plane, and Export capabilities.");
+            }
+
+            function setupEventListeners() {
+                document.getElementById("bgColor").addEventListener("input", (event) => {
+                    scene.background = new THREE.Color(event.target.value);
+                });
+                document.getElementById("ambientColor").addEventListener("input", (event) => {
+                    ambientLight.color.set(event.target.value);
+                });
+                document.getElementById("ambientIntensity").addEventListener("input", (event) => {
+                    const value = parseFloat(event.target.value);
+                    ambientLight.intensity = value;
+                    document.getElementById("ambientIntensityVal").textContent = value.toFixed(2);
+                });
+                document.getElementById("dirColor").addEventListener("input", (event) => {
+                    directionalLight.color.set(event.target.value);
+                });
+                document.getElementById("dirIntensity").addEventListener("input", (event) => {
+                    const value = parseFloat(event.target.value);
+                    directionalLight.intensity = value;
+                    document.getElementById("dirIntensityVal").textContent = value.toFixed(2);
+                });
+                document.getElementById("dirX").addEventListener("input", (event) => {
+                    const value = parseFloat(event.target.value);
+                    directionalLight.position.x = value;
+                    document.getElementById("dirXVal").textContent = value.toFixed(1);
+                });
+                document.getElementById("dirY").addEventListener("input", (event) => {
+                    const value = parseFloat(event.target.value);
+                    directionalLight.position.y = value;
+                    document.getElementById("dirYVal").textContent = value.toFixed(1);
+                });
+                document.getElementById("dirZ").addEventListener("input", (event) => {
+                    const value = parseFloat(event.target.value);
+                    directionalLight.position.z = value;
+                    document.getElementById("dirZVal").textContent = value.toFixed(1);
+                });
+                // --- New Shadow Radius Listener ---
+                document.getElementById("shadowRadius").addEventListener("input", (event) => {
+                    const value = parseInt(event.target.value);
+                    directionalLight.shadow.radius = value;
+                    document.getElementById("shadowRadiusVal").textContent = value;
+                });
+                document.getElementById("ssaoKernelRadius").addEventListener("input", (event) => {
+                    const value = parseFloat(event.target.value);
+                    ssaoPass.kernelRadius = value;
+                    document.getElementById("ssaoKernelRadiusVal").textContent = value.toFixed(1);
+                });
+                document.getElementById("ssaoMinDistance").addEventListener("input", (event) => {
+                    const value = parseFloat(event.target.value);
+                    ssaoPass.minDistance = value;
+                    document.getElementById("ssaoMinDistanceVal").textContent = value.toFixed(4);
+                });
+                document.getElementById("ssaoMaxDistance").addEventListener("input", (event) => {
+                    const value = parseFloat(event.target.value);
+                    ssaoPass.maxDistance = value;
+                    document.getElementById("ssaoMaxDistanceVal").textContent = value.toFixed(3);
+                });
+
+                document.getElementById("toggleGround").addEventListener("change", toggleGroundPlaneVisibility);
+                document.getElementById("captureScreenshotBtn").addEventListener("click", captureScreenshot);
+                document.getElementById("exportGltfBtn").addEventListener("click", exportGLTF);
+                document.getElementById("exportObjBtn").addEventListener("click", exportOBJ);
+            }
+
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                composer.setSize(window.innerWidth, window.innerHeight);
+                if (ssaoPass) {
+                    ssaoPass.setSize(window.innerWidth, window.innerHeight);
+                }
+                log("Window resized.");
+            }
+
+            const hashToServer = (hash) => {
+                let i = 31;
+                for (const c of hash) i ^= c.charCodeAt(0);
+                return i % 8;
+            };
+
+            document.getElementById("renderBtn").onclick = async () => {
+                const userId = document.getElementById("userId").value.trim();
+                if (!userId || !/^\d+$/.test(userId)) {
+                    alert("Please enter a valid Roblox User ID (numbers only).");
+                    return;
+                }
+                loaderOverlay.style.display = "flex";
+                log(`\nFetching avatar for User ID: ${userId}...`);
+                try {
+                    const thumbResponse = await fetch(PROXY + encodeURIComponent(`https://thumbnails.roblox.com/v1/users/avatar-3d?userId=${userId}`));
+                    if (!thumbResponse.ok) throw new Error(`Failed to fetch thumbnail data: ${thumbResponse.status} ${thumbResponse.statusText}`);
+                    const thumbData = await thumbResponse.json();
+                    if (!thumbData.imageUrl) throw new Error("No imageUrl found in thumbnail data.");
+                    log("Thumbnail metadata URL:", thumbData.imageUrl);
+
+                    const manifestResponse = await fetch(PROXY + encodeURIComponent(thumbData.imageUrl));
+                    if (!manifestResponse.ok) throw new Error(`Failed to fetch asset manifest: ${manifestResponse.status} ${manifestResponse.statusText}`);
+                    const manifest = await manifestResponse.json();
+                    log("Asset manifest:", manifest);
+
+                    const mtlHash = manifest.mtl;
+                    const objHash = manifest.obj;
+                    if (!mtlHash || !objHash) throw new Error("MTL or OBJ hash missing in manifest.");
+
+                    const mtlUrl = `https://t${hashToServer(mtlHash)}.rbxcdn.com/${mtlHash}`;
+                    const objUrl = `https://t${hashToServer(objHash)}.rbxcdn.com/${objHash}`;
+                    log("MTL URL:", mtlUrl);
+                    log("OBJ URL:", objUrl);
+
+                    log("Loading MTL data...");
+                    const mtlTextResponse = await fetch(PROXY + encodeURIComponent(mtlUrl));
+                    if (!mtlTextResponse.ok) throw new Error(`Failed to load MTL: ${mtlTextResponse.status} ${mtlTextResponse.statusText}`);
+                    const mtlText = await mtlTextResponse.text();
+
+                    const materialMap = {};
+                    let currentMaterialName = null;
+                    const lines = mtlText.split(/\r?\n/);
+
+                    for (const line of lines) {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine.startsWith("newmtl ")) {
+                            currentMaterialName = trimmedLine.substring(7).trim();
+                        } else if (currentMaterialName && trimmedLine.startsWith("map_Kd ")) {
+                            const parts = trimmedLine.split(/\s+/);
+                            if (parts.length > 1) {
+                                const textureHash = parts.length > 1 ? parts.pop() : null;
+                                if (textureHash) {
+                                    const textureUrl = `https://t${hashToServer(textureHash)}.rbxcdn.com/${textureHash}`;
+                                    log(`  Material '${currentMaterialName}' uses texture: ${textureUrl}`);
+
+                                    const texture = textureLoader.load(
+                                        PROXY + encodeURIComponent(textureUrl),
+                                        (tex) => {
+                                            tex.flipY = true;
+                                            tex.needsUpdate = true;
+                                            tex.encoding = THREE.sRGBEncoding;
+                                            tex.minFilter = THREE.LinearMipmapLinearFilter;
+                                            tex.magFilter = THREE.LinearFilter;
+                                            tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                                            log(`    Texture loaded and configured for: ${textureUrl.split("/").pop()}`);
+                                        },
+                                        undefined,
+                                        (err) => {
+                                            log(`    Error loading texture ${textureUrl.split("/").pop()}:`, err);
+                                        }
+                                    );
+
+                                    materialMap["mtl." + currentMaterialName] = new THREE.MeshStandardMaterial({
+                                        // Use 'mtl.' prefix
+                                        map: texture,
+                                        metalness: 0.1,
+                                        roughness: 0.8,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    log("Parsed materials:", Object.keys(materialMap));
+
+                    if (currentAvatar) {
+                        scene.remove(currentAvatar);
+                        currentAvatar.traverse((o) => {
+                            if (o.isMesh) {
+                                o.geometry?.dispose();
+                                if (o.material) {
+                                    const materials = Array.isArray(o.material) ? o.material : [o.material];
+                                    materials.forEach((m) => {
+                                        m.map?.dispose();
+                                        m.dispose();
+                                    });
+                                }
+                            }
+                        });
+                        log("Cleared previous avatar.");
+                    }
+
+                    log("Loading OBJ data...");
+                    const objTextResponse = await fetch(PROXY + encodeURIComponent(objUrl));
+                    if (!objTextResponse.ok) throw new Error(`Failed to load OBJ: ${objTextResponse.status} ${objTextResponse.statusText}`);
+                    const objText = await objTextResponse.text();
+
+                    const objLoader = new THREE.OBJLoader();
+                    const object = objLoader.parse(objText);
+                    log("OBJ parsed.");
+
+                    object.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                            if (!child.geometry.attributes.normal) {
+                                child.geometry.computeVertexNormals();
+                                log(`Computed vertex normals for mesh: ${child.name || "unnamed"}`);
+                            }
+                            const materialName = child.material?.name ? "mtl." + child.material.name : null; // Expect 'mtl.' prefix
+                            if (materialName && materialMap.hasOwnProperty(materialName)) {
+                                child.material = materialMap[materialName];
+                            } else {
+                                log(`  Warning: Material "${child.material?.name}" not found in parsed MTL. Using fallback.`);
+                                child.material = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.1, roughness: 0.8 });
+                            }
+                            if (child.material) child.material.needsUpdate = true;
+                        }
+                    });
+
+                    const box = new THREE.Box3().setFromObject(object);
+                    const center = new THREE.Vector3();
+                    box.getCenter(center);
+                    object.position.sub(center);
+                    box.setFromObject(object);
+                    object.position.y -= box.min.y;
+
+                    scene.add(object);
+                    currentAvatar = object;
+
+                    const newTargetPos = new THREE.Vector3();
+                    box.setFromObject(currentAvatar);
+                    box.getCenter(newTargetPos);
+                    newTargetPos.y = box.min.y + (box.max.y - box.min.y) / 2;
+
+                    controls.target.copy(newTargetPos);
+                    controls.update();
+                    log("Avatar rendered and positioned.");
+                } catch (e) {
+                    log("Error during avatar rendering:", e.message || e, e.stack || "");
+                    alert(`Error: ${e.message || "An unknown error occurred."} Check console for details.`);
+                } finally {
+                    loaderOverlay.style.display = "none";
+                }
+            };
+
+            function toggleGroundPlaneVisibility() {
+                if (groundPlane) {
+                    groundPlane.visible = document.getElementById("toggleGround").checked;
+                    log(`Ground plane visibility set to: ${groundPlane.visible}`);
+                }
+            }
+
+            function captureScreenshot() {
+                try {
+                    const dataURL = renderer.domElement.toDataURL("image/png");
+                    const link = document.createElement("a");
+                    link.download = "roblox_avatar_screenshot.png";
+                    link.href = dataURL;
+                    link.click();
+                    log("Screenshot captured.");
+                } catch (e) {
+                    console.error("Error capturing screenshot:", e);
+                    alert("Error capturing screenshot. See console for details.");
+                }
+            }
+
+            function saveString(text, filename) {
+                const link = document.createElement("a");
+                link.style.display = "none";
+                document.body.appendChild(link);
+                const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+            }
+
+            function exportGLTF() {
+                if (!currentAvatar) {
+                    alert("Please render an avatar first.");
+                    return;
+                }
+                const exporter = new THREE.GLTFExporter();
+                const options = {
+                    trs: false,
+                    onlyVisible: true,
+                    binary: false,
+                    embedImages: true,
+                    animations: currentAvatar.animations && currentAvatar.animations.length ? currentAvatar.animations : [],
+                };
+                exporter.parse(
+                    currentAvatar,
+                    function (gltf) {
+                        const output = JSON.stringify(gltf, null, 2);
+                        saveString(output, "avatar.gltf");
+                        log("GLTF exported.");
+                    },
+                    function (error) {
+                        console.error("An error happened during GLTF exportation:", error);
+                        alert("Error exporting GLTF. See console for details.");
+                    },
+                    options
+                );
+            }
+
+            function exportOBJ() {
+                if (!currentAvatar) {
+                    alert("Please render an avatar first.");
+                    return;
+                }
+                const exporter = new THREE.OBJExporter();
+                try {
+                    const result = exporter.parse(currentAvatar);
+                    saveString(result, "avatar.obj");
+                    log("OBJ exported.");
+                } catch (error) {
+                    console.error("An error happened during OBJ exportation:", error);
+                    alert("Error exporting OBJ. See console for details.");
+                }
+            }
+
+            initThreeJS();
+            log('Enter a Roblox User ID and click "Render Avatar". Adjust settings using the controls.');
+        </script>
+    </body>
+</html>
