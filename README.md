@@ -4,7 +4,7 @@ Renders Roblox avatars in 3D using Three.js by fetching avatar data via Roblox U
 
 ## Live Demo
 
-soon
+[https://crowsyndrome.github.io/roblox-avatar-renderer/]
 
 ## Core Features
 
